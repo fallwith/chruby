@@ -43,21 +43,35 @@ function chruby_use()
 	export RUBYOPT="$2"
 	export PATH="$RUBY_ROOT/bin:$PATH"
 
-	eval "$(RUBYGEMS_GEMDEPS="" "$RUBY_ROOT/bin/ruby" - <<EOF
+	chruby_set_paths
+
+	hash -r
+}
+
+function chruby_set_paths()
+{
+	local source_file="$RUBY_ROOT/.gem_path_vars"
+
+	if [ -f "$source_file" ]; then
+		source "$source_file"
+	else
+		eval "$(RUBYGEMS_GEMDEPS="" "$RUBY_ROOT/bin/ruby" - <<EOF
 puts "export RUBY_ENGINE=#{Object.const_defined?(:RUBY_ENGINE) ? RUBY_ENGINE : 'ruby'};"
 puts "export RUBY_VERSION=#{RUBY_VERSION};"
 begin; require 'rubygems'; puts "export GEM_ROOT=#{Gem.default_dir.inspect};"; rescue LoadError; end
 EOF
 )"
-	export PATH="${GEM_ROOT:+$GEM_ROOT/bin:}$PATH"
+		export PATH="${GEM_ROOT:+$GEM_ROOT/bin:}$PATH"
 
-	if (( UID != 0 )); then
-		export GEM_HOME="$HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION"
-		export GEM_PATH="$GEM_HOME${GEM_ROOT:+:$GEM_ROOT}${GEM_PATH:+:$GEM_PATH}"
-		export PATH="$GEM_HOME/bin:$PATH"
+		if (( UID != 0 )); then
+			echo "
+export GEM_HOME=\"$HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION\"
+export GEM_PATH=\"$GEM_HOME${GEM_ROOT:+:$GEM_ROOT}${GEM_PATH:+:$GEM_PATH}\"
+export PATH=\"$GEM_HOME/bin:${GEM_ROOT:+$GEM_ROOT/bin:}:\$PATH\"
+" > "$source_file"
+			source "$source_file"
+		fi
 	fi
-
-	hash -r
 }
 
 function chruby()
